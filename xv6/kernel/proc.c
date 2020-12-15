@@ -6,20 +6,21 @@
 #include "proc.h"
 #include "spinlock.h"
 #include "pstat.h"
+
 struct {
-    struct spinlock lock;
-    struct proc     proc[NPROC]; //Mang tien trinh
+    struct spinlock lock;      // xử lý race condition
+    struct proc proc[NPROC]; //Mang tien trinh
 } ptable;
 
 static struct proc *initproc;
 
 static const int DEBUG = 0;
 
-int maxTicks[4] = { 0, 32, 16, 8 };       // Maximun Ticks at each level
+int maxTicks[4] = { 0, 32, 16, 8 };       // Maximun Ticks at each level  
 int starvationMax[3] = { 500, 320, 160 }; // Starvation ticks at each level
-struct proc *PQ[4][NPROC];                // to store processes at each priority NPROC: so tien trinh toi da 1 quecue
+struct proc *PQ[4][NPROC];                // to store processes at each priority NPROC: so tien trinh toi da 1 quecue là 64
 
-// init all processes at ech priority as NULL
+// init all processes at ech priority as NULL Khởi tạo tất cả process ở mỗi queue với giá trị NULL
 void initPQ() {
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < NPROC; j++) {
@@ -40,7 +41,7 @@ void printPQ() {
 }
 
 // insert process iproc at priority pri in PQ
-void addToPQ(int pri, struct proc *iproc) { //truyen 1 process *iproc
+void addToPQ(int pri, struct proc *iproc) { //truyen 1 process *iproc, pri là priority là vị trí của Queue trong mảng
     //cprintf("Add process:%d pri:%d\n",iproc->pid,pri);
     if (DEBUG) cprintf("****************ADD BLOCK ******************\n");
     if (DEBUG) printPQ();
@@ -48,24 +49,26 @@ void addToPQ(int pri, struct proc *iproc) { //truyen 1 process *iproc
 
     int i = 0;
     while (i < NPROC) {
-        if (PQ[pri][i] == NULL) break; //Kiem tra queue
+        if (PQ[pri][i] == NULL) break; //Kiem tra queue , nếu gặp index có process chưa sử dụng thì dừng lại, lưu giá trị của vị trí trong mảng vào i, còn nếu ko thì i++ tiếp tục duyệt
         i++;
     }
-    PQ[pri][i] = iproc;
+
+    PQ[pri][i] = iproc; // gán process iproc cho process ở queue pri có vị trí i
     if (DEBUG) printPQ();
     if (DEBUG) cprintf("=============================================\n");
 }
 
 // delete process iproc at priority pri
-void deleteFromPQ(int pri, struct proc *iproc) {
+void deleteFromPQ(int pri, struct proc *iproc) {   //hàm này xóa process từ PQ , truyền vào pri( priority) và process
     if (DEBUG) cprintf("**************** DELETE BLOCK ********************\n");
     if (DEBUG) printPQ();
     if (DEBUG) cprintf("deleting pri:%d pid:%d\n", pri, iproc->pid);
 
-    int i = 0;
-    while (PQ[pri][i] != iproc && i < NPROC) {
+    int i = 0;   // index
+    while (PQ[pri][i] != iproc && i < NPROC) {  // duyệt đến khi nào gặp process có giá trị bằng với iproc truyền vào hàm và đảm bảo cho i ko vượt quá 64 là NPROC
         i++;
     }
+    // hết đoạn này lấy đc giá trị i
     if ((i == NPROC - i) || (PQ[pri][i + 1] == NULL)) {
         PQ[pri][i] = NULL;
         if (DEBUG) printPQ();
